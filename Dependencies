@@ -1,0 +1,7 @@
+zero-true==0.0.dev46
+python==3.12
+pandas==2.2.0
+plotly==5.18.o
+numpy == 1.21.2
+matplotlib == 3.4.3
+Pillow == 8.3.2 
