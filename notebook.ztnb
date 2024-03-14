@@ -1,48 +1,113 @@
 notebookId = "4c2d35c1-fcd7-4464-a291-e4431363d365"
 notebookName = ""
 
+[cells.da18bbe1-5b0a-424c-b5b4-a330f5590232]
 cellName = ""
-[cells.33f6dc1c-6d0b-4d2f-9db9-6fce1c6df2b5]
 cellType = "code"
 hideCell = "False"
 hideCode = "False"
+expandCode = "False"
+showTable = "False"
+nonReactive = "False"
 code = """
-from prophet import Prophet
-import pandas as pd
-import plotly.graph_objects as go
 import zero_true as zt
+from zero_true import TextInput, Slider, Button, Text, Layout, Row, Column, SelectBox, PlotlyComponent
+import pandas as pd
+import plotly
+import plotly.graph_objects as go
+from prophet import Prophet
+import json
 
-df = pd.read_csv('FCStocks.csv')
+# Function to generate the forecast and plot based on the selection
+def generate_forecast_and_plot(x):
+    if x == "A":
+        df = pd.read_csv('stocks/A.csv')
+    elif x == "AM":
+        df = pd.read_csv('stocks/AM.csv')
+    elif x == "C":
+        df = pd.read_csv('stocks/CTT.csv')
+    elif x == "D":
+        df = pd.read_csv('stocks/DB.csv')
+    else:
+        print("Not an option")
+        return 
+        
+    df_prophet = df[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
+    df_prophet['ds'] = pd.to_datetime(df_prophet['ds'])
+    
+    m = Prophet()
+    m.fit(df_prophet)
+    
+    future = m.make_future_dataframe(periods=365)
+    forecast = m.predict(future)
+    
+    layout = {
+        "title": "Forecasted Stock Prices",
+        "xaxis": {"title": "Date"},
+        "yaxis": {"title": "Stock Price"}
+    }
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df_prophet['ds'], y=df_prophet['y'], name='Historical Close'))
+    fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], name='Forecast'))
+    fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_upper'], name='Upper Confidence Interval', line=dict(width=0)))
+    fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_lower'], name='Lower Confidence Interval', line=dict(width=0), fill='tonexty'))
+    fig.update_layout(layout)
+    
+    # Convert the Plotly figure to JSON
+    figure_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+    
+    # Create a PlotlyComponent with the serialized figure
+    plotly_component = zt.PlotlyComponent(
+        id="forecast_plot",
+        figure_json=figure_json
+    )
+    
+    # Assuming you have a method to add the component to your UI, such as adding it to a layout
+    layout = zt.Layout(components=[plotly_component])
+    
 
-df_prophet = df[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
+graph_select_box = zt.SelectBox(
+    id="graph_select_box",
+    items=["Agilent Technologies", "Antero Midstream Corporation", "CatchMark Timber Trust","Deutsche Bank AG Common Stock"],  # Use simple strings here
+    label="Choose a Forecast to Display"
+)
 
-df_prophet['ds'] = pd.to_datetime(df_prophet['ds'])
 
-m = Prophet()
+# Define a Button that when clicked, will generate the forecast and plot
+generate_button = Button(
+    id="generate_button",
+    text="Generate Forecast",
+    # Event binding to trigger forecast generation goes here
+)
 
-m.fit(df_prophet)
-
-future = m.make_future_dataframe(periods=365)
-
-forecast = m.predict(future)
-
-layout = {
-    "title": "Forecasted Stock Prices",
-    "xaxis": {"title": "Date"},
-    "yaxis": {"title": "Stock Price"}
+# Map of user-friendly names to values
+selection_map = {
+    "Agilent Technologies": "A",
+    "Antero Midstream Corporation": "AM",
+    "CatchMark Timber Trust": "C",
+    "Deutsche Bank AG Common Stock": "D",
 }
 
-fig = go.Figure()
+# Function to be called when the update button is clicked
+# Adjust this function according to how your framework handles button clicks
+def on_generate_button_click():
+    # Map the user-friendly name to a value
+    selected_value = selection_map.get(graph_select_box.value)
+    if selected_value:
+        plotly_component = generate_forecast_and_plot(selected_value)
+        # Update your UI here with the new plotly_component
 
-fig.add_trace(go.Scatter(x=df_prophet['ds'], y=df_prophet['y'], name='Historical Close'))
+# Set up your initial layout
+layout = zt.Layout(
+    rows=[
+        Row(components=[graph_select_box.id]),
+        Row(components=[generate_button.id]),
+        # Placeholder for PlotlyComponent; you'll dynamically insert this based on the selection and button click
+    ]
+)
 
-fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], name='Forecast'))
-
-fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_upper'], name='Upper Confidence Interval', line=dict(width=0)))
-fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_lower'], name='Lower Confidence Interval', line=dict(width=0), fill='tonexty'))
-
-fig.update_layout(layout)
-
-fig.show()
+if (generate_button.value):
+    on_generate_button_click()
 """
 
